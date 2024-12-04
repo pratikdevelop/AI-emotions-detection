@@ -3,11 +3,11 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from tensorflow.keras.preprocessing.image import load_img, img_to_array
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import load_img, img_to_array # type: ignore
+from tensorflow.keras.utils import to_categorical # type: ignore
+from tensorflow.keras.models import Sequential # type: ignore
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout # type: ignore
+from tensorflow.keras.models import load_model # type: ignore
 from flask import Flask, render_template, request, jsonify
 import cv2
 from deepface import DeepFace
