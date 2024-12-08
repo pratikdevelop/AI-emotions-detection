@@ -1,97 +1,255 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Emotion Detection</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-</head>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
 
-<body class="bg-gray-100 flex flex-col items-center justify-center h-screen">
+  <body
+    class="bg-gray-100 flex flex-col items-center justify-center min-h-screen"
+  >
     <h1 class="text-3xl font-bold mb-4">Emotion Detection</h1>
-    <div id="permissionWarning" class="text-red-600 font-bold mb-4">Please allow camera access when prompted by your
-        browser.</div>
-    <button id="startButton" class="bg-blue-500 text-white px-4 py-2 rounded mb-2">Start Emotion Detection</button>
-    <button id="stopButton" class="bg-red-500 text-white px-4 py-2 rounded">Stop Camera</button>
-    <video id="video" class="border border-black w-80 h-80 mt-4" autoplay></video>
+    <div id="permissionWarning" class="text-red-600 font-bold mb-4 hidden">
+      Please allow camera access when prompted by your browser.
+    </div>
+    <button
+      id="startButton"
+      class="bg-blue-500 text-white px-4 py-2 rounded mb-2"
+    >
+      Start Emotion Detection
+    </button>
+    <!-- <button id="stopButton" class="bg-red-500 text-white px-4 py-2 rounded">Stop Camera</button> -->
+    <video
+      id="video"
+      class="border border-black w-80 h-80 mt-4"
+      autoplay
+    ></video>
     <div id="emotion" class="text-xl mt-4"></div>
     <div id="errorMessage" class="text-red-600 font-bold mt-4 hidden"></div>
+    <div id="playlistContainer" class="mt-6 hidden">
+      <h2 class="text-2xl font-bold mb-4">Recommended Playlist</h2>
+      <div id="songsList" class="flex flex-col gap-4"></div>
+    </div>
 
     <script>
-        const video = document.getElementById('video');
-        const emotionDiv = document.getElementById('emotion');
-        const errorMessageDiv = document.getElementById('errorMessage');
-        let stream;
-        let detectionInterval;
+      const video = document.getElementById("video");
+      const emotionDiv = document.getElementById("emotion");
+      const errorMessageDiv = document.getElementById("errorMessage");
+      const playlistContainer = document.getElementById("playlistContainer");
+      const songsList = document.getElementById("songsList");
+      let stream;
 
-        document.getElementById('startButton').addEventListener('click', async () => {
-            try {
-                // Requesting the webcam stream
-                stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                video.srcObject = stream;
+      document
+        .getElementById("startButton")
+        .addEventListener("click", async () => {
+          try {
+            // Requesting the webcam stream
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            errorMessageDiv.classList.add("hidden");
 
-                // Call the emotion detection function every second
-                detectEmotion();
-            } catch (error) {
-                console.error("Error accessing webcam: ", error);
-                emotionDiv.innerText = "Error accessing webcam. Please check permissions.";
-                errorMessageDiv.innerText = "Error accessing webcam. Please allow camera access.";
-                errorMessageDiv.classList.remove('hidden');
-            }
+            // Capture and send frame for emotion detection
+            detectEmotion();
+          } catch (error) {
+            console.error("Error accessing webcam: ", error);
+            emotionDiv.innerText =
+              "Error accessing webcam. Please check permissions.";
+            errorMessageDiv.innerText =
+              "Error accessing webcam. Please allow camera access.";
+            errorMessageDiv.classList.remove("hidden");
+          }
         });
 
-        document.getElementById('stopButton').addEventListener('click', () => {
-            if (stream) {
-                const tracks = stream.getTracks();
-                tracks.forEach(track => track.stop());
-                video.srcObject = null;
-                emotionDiv.innerText = "Camera stopped.";
-
-                // Stop the emotion detection interval
-                if (detectionInterval) {
-                    clearInterval(detectionInterval);
-                }
-            }
-        });
-
-        async function detectEmotion() {
-            console.log("Emotion detection is working. You can see the detected emotion below.", video);
-
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            // Capture a frame from the video and draw it on the canvas
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageData = canvas.toDataURL('image/png');
-
-            // Send the image data to the backend for emotion detection
-            try {
-                const response = await fetch('/detect_emotion', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ image: imageData })
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    emotionDiv.innerText = `Detected Emotion: ${result.emotion}`;
-                } else {
-                    throw new Error('Failed to detect emotion');
-                }
-            } catch (error) {
-                console.error(error);
-                emotionDiv.innerText = "Error in emotion detection. Try again.";
-            }
-
-            // Continue the emotion detection process at 1-second intervals
-            detectionInterval = setTimeout(detectEmotion, 1000);
+      document.getElementById("stopButton").addEventListener("click", () => {
+        if (stream) {
+          const tracks = stream.getTracks();
+          tracks.forEach((track) => track.stop());
+          video.srcObject = null;
+          emotionDiv.innerText = "Camera stopped.";
+          playlistContainer.classList.add("hidden");
         }
-    </script>
-</body>
+      });
 
+      async function detectEmotion() {
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        // Capture a frame from the video
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL("image/png");
+
+        try {
+          // Send image to the backend for emotion detection
+          const response = await fetch("/detect_emotion", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image: imageData }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            video.srcObject = null;
+            const tracks = stream.getTracks();
+            tracks.forEach((track) => track.stop());
+            emotionDiv.innerText = `Detected Emotion: ${result.emotion}`;
+            if (result.songs && result.songs.length > 0) {
+              displayPlaylist(result.songs);
+            } else {
+              playlistContainer.classList.add("hidden");
+              emotionDiv.innerText += " (No songs found for this emotion)";
+            }
+          } else {
+            throw new Error("Failed to detect emotion.");
+          }
+        } catch (error) {
+          console.error(error);
+          detectEmotion();
+          emotionDiv.innerText = "Error in emotion detection. Try again.";
+        }
+      }
+
+      /*
+        function displayPlaylist(songs) {
+    songsList.innerHTML = ''; // Clear previous songs list
+    let delay = 0;  // Delay counter
+
+    songs.forEach(song => {
+        setTimeout(() => {
+            const songItem = document.createElement('div');
+            songItem.className = 'flex items-center gap-4 p-2 bg-white rounded shadow';
+
+            // Song title
+            const songTitle = document.createElement('span');
+            songTitle.className = 'flex-grow text-lg';
+            songTitle.innerText = song.name;
+
+            // Spotify Embed
+            const spotifyEmbed = document.createElement('audio');
+            spotifyEmbed.className = 'w-48 h-16'; // Set desired dimensions
+            spotifyEmbed.src = `https://open.spotify.com/embed/track/${song.url.split('/').pop()}`;
+            // spotifyEmbed.
+            spotifyEmbed.controls = true;
+
+            spotifyEmbed.allowFullScreen = true;
+
+            songItem.appendChild(songTitle);
+            songItem.appendChild(spotifyEmbed);
+
+            songsList.appendChild(songItem);
+        }, delay);
+        
+        // Increase delay (e.g., add 1000ms = 1 second for each new song)
+        delay += 1000;
+    });
+
+    playlistContainer.classList.remove('hidden');
+}
+
+        function displayPlaylist(songs) {
+            songsList.innerHTML = '';
+            songs.forEach(song => {
+                const songItem = document.createElement('div');
+                songItem.className = 'flex items-center gap-4 p-2 bg-white rounded shadow';
+                
+                // Song title
+                const songTitle = document.createElement('span');
+                songTitle.className = 'flex-grow text-lg';
+                songTitle.innerText = song.name;
+
+                // Play button (embed Spotify link)
+                // const playButton = document.createElement('a');
+                // playButton.className = 'text-blue-500 hover:underline';
+                // playButton.href = song.url; // Spotify track URL
+                // playButton.target = '_blank';
+                // playButton.innerText = 'Play';
+
+                // songItem.appendChild(songTitle);
+                // songItem.appendChild(playButton);
+                // songsList.appendChild(songItem);
+                // Instead of audio player
+const spotifyEmbed = document.createElement('iframe');
+spotifyEmbed.className = 'w-48 h-16'; // Adjust dimensions
+spotifyEmbed.src = `https://open.spotify.com/embed/track/${song.url.split('/').pop()}`;
+spotifyEmbed.frameBorder = '0';
+spotifyEmbed.allow = 'encrypted-media';
+
+songsList.appendChild(songTitle);
+songsList.appendChild(spotifyEmbed)
+            });
+
+            playlistContainer.classList.remove('hidden');
+        }*/
+      function displayPlaylist(songs) {
+        songsList.innerHTML = ""; // Clear previous songs list
+
+        songs.forEach((song) => {
+          const songItem = document.createElement("div");
+          songItem.className =
+            "flex items-center gap-4 p-2 bg-white rounded shadow";
+
+          // Create an anchor tag for the song link
+          const songLink = document.createElement("a");
+          songLink.className =
+            "flex-grow text-lg text-blue-500 hover:underline";
+          songLink.href = song.url; // Spotify track URL
+          // songLink.target = '_blank'; // Open in a new tab
+          songLink.innerText = song.name;
+
+          // Append the song link to the song item
+          songItem.appendChild(songLink);
+
+          // Append the song item to the songs list
+          songsList.appendChild(songItem);
+        });
+
+        playlistContainer.classList.remove("hidden");
+      }
+
+      // async function displayPlaylist(songs) {
+      //     songsList.innerHTML = ''; // Clear previous songs list
+      //     let delay = 0;  // Delay counter
+
+      //     const token = await getSpotifyToken();  // Get token
+
+      //     songs.forEach(song => {
+      //         setTimeout(() => {
+      //             const songItem = document.createElement('div');
+      //             songItem.className = 'flex items-center gap-4 p-2 bg-white rounded shadow';
+
+      //             // Song title
+      //             const songTitle = document.createElement('span');
+      //             songTitle.className = 'flex-grow text-lg';
+      //             songTitle.innerText = song.name;
+
+      //             // Create the audio element
+      //             const spotifyEmbed = document.createElement('audio');
+      //             spotifyEmbed.className = 'w-48 h-16'; // Set desired dimensions
+      //             spotifyEmbed.controls = true;
+      //             spotifyEmbed.allowFullScreen = true;
+
+      //             // Construct the API URL with the access token
+      //             const trackId = song.url.split('/').pop();
+      //             spotifyEmbed.src = `https://api.spotify.com/v1/tracks/${trackId}?market=US&access_token=${token}`;
+
+      //             songItem.appendChild(songTitle);
+      //             songItem.appendChild(spotifyEmbed);
+
+      //             songsList.appendChild(songItem);
+      //         }, delay);
+
+      //         // Increase delay (e.g., add 1000ms = 1 second for each new song)
+      //         delay += 1000;
+      //     });
+
+      //     playlistContainer.classList.remove('hidden');
+      // }
+    </script>
+  </body>
 </html>

@@ -15,6 +15,16 @@ from io import BytesIO
 from PIL import Image
 import base64
 import tensorflow as tf
+import requests
+import json
+from dotenv import load_dotenv
+load_dotenv()  # take environment variables from .env.
+import os
+
+
+# Spotify API credentials
+SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
+SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 
 # Disable GPU
 tf.config.set_visible_devices([], 'GPU')
@@ -57,6 +67,78 @@ def analyze_emotion_from_image(image_path):
         print(f"Error analyzing emotion from image: {e}")
         return None
 
+def get_spotify_access_token():
+    try:
+        auth_url = "https://accounts.spotify.com/api/token"
+        response = requests.post(auth_url, {
+            'grant_type': 'client_credentials',
+            'client_id': SPOTIFY_CLIENT_ID,
+            'client_secret': SPOTIFY_CLIENT_SECRET
+        })
+        response_data = response.json()
+        return response_data.get("access_token")
+    except Exception as e:
+        print(f"Error fetching Spotify token: {e}")
+        return None
+
+
+def get_songs_for_emotion(emotion):
+    try:
+        # Emotion to genre mapping
+        emotion_to_genre = {
+            "happy": "Indie Pop",
+            "sad": "acoustic",
+            "anger": "rock",
+            "relaxed": "chill",
+            "excited": "party",
+            "surprise": "electronic",
+            "neutral": "classical",
+            "disgust": "industrial"  # or grunge, dark ambient, etc.
+
+        }
+
+        genre = emotion_to_genre[emotion]
+        # Get Spotify access token
+        token = get_spotify_access_token()
+        if not token:
+            print("Spotify access token could not be retrieved.")
+            return []
+        # Spotify Search API URL
+        search_url = f"https://api.spotify.com/v1/search?q={str(genre)}&type=playlist&limit=1"
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Fetch playlist
+        response = requests.get(search_url, headers=headers)
+        response_data = response.json()
+
+        # Check if playlists exist in the response
+        playlists = response_data.get("playlists", {}).get("items", [])
+
+        if not playlists or len(playlists) == 0:
+            print("No playlists found for the emotion:", emotion)
+            return []
+
+        # Use the first playlist to get tracks
+        print('ddddd')
+        playlist_id = playlists[0]["id"]
+        tracks_url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
+        tracks_response = requests.get(tracks_url, headers=headers)
+
+        tracks_data = tracks_response.json()
+        # Extract song names and URLs
+        songs = [
+            {
+                "name": track["track"]["name"],
+                "url": track["track"]["external_urls"]["spotify"]
+            }
+            for track in tracks_data.get("items", [])
+            if track.get("track") and track["track"].get("external_urls")
+        ]
+        return songs
+    except Exception as e:
+        print(f"Error fetching songs for emotion: {e}")
+        return []
+
 # Route to render the HTML page
 @app.route('/')
 def index():
@@ -94,7 +176,11 @@ def detect_emotion_route():
         if emotion is None:
             return jsonify({"error": "Error analyzing emotion from the image!"}), 500
 
-        return jsonify({"emotion": emotion})
+        # Fetch song recommendations for the detected emotion
+        songs = get_songs_for_emotion(emotion)
+        if not songs:
+            return jsonify({"emotion": emotion, "songs": [], "message": "No songs found for this emotion."})
+        return jsonify({"emotion": emotion, "songs": songs})
 
     except Exception as e:
         print(f"Error in emotion detection route: {e}")
