@@ -35,6 +35,8 @@ app = Flask(__name__)
 # Load the trained model and label encoder
 try:
     model = load_model('emotion_detection_model.h5')
+    print('gfkgjfjgkfjj')
+    print(model)
 except Exception as e:
     print(f"Error loading the model: {e}")
     model = None
@@ -89,6 +91,8 @@ def get_songs_for_emotion(emotion):
             "happy": "Indie Pop",
             "sad": "acoustic",
             "anger": "rock",
+            "angry": "rock",
+            "fear":'horror',
             "relaxed": "chill",
             "excited": "party",
             "surprise": "electronic",
@@ -148,6 +152,7 @@ def index():
 @app.route('/detect_emotion', methods=['POST'])
 def detect_emotion_route():
     try:
+        # Get the image data from the frontend
         data = request.json
         image_data = data.get('image')
         if not image_data:
@@ -161,30 +166,69 @@ def detect_emotion_route():
         if image.mode == 'RGBA':
             image = image.convert('RGB')
 
+        # Convert the image to a NumPy array (DeepFace requires this format)
         frame = np.array(image)
 
-        # Save image temporarily to predict
-        temp_image_path = "temp_user_image.jpg"
-        image.save(temp_image_path, 'JPEG')  # Save the image as JPEG
-
-        # Analyze the emotion using the trained model
-        emotion = analyze_emotion_from_image(temp_image_path)
-
-        # Delete temporary image file
-        os.remove(temp_image_path)
-
-        if emotion is None:
+        # Use DeepFace to analyze the emotion
+        analysis = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
+        print(analysis[0]['dominant_emotion'])
+        if not analysis or 'emotion' not in analysis[0]:
             return jsonify({"error": "Error analyzing emotion from the image!"}), 500
 
-        # Fetch song recommendations for the detected emotion
-        songs = get_songs_for_emotion(emotion)
-        if not songs:
-            return jsonify({"emotion": emotion, "songs": [], "message": "No songs found for this emotion."})
-        return jsonify({"emotion": emotion, "songs": songs})
+        # Extract the dominant emotion
+        dominant_emotion = analysis[0]['dominant_emotion']
 
+        # Fetch song recommendations for the detected emotion
+        songs = get_songs_for_emotion(dominant_emotion)  # Assuming you have this function
+        if not songs:
+            return jsonify({"emotion": dominant_emotion, "songs": [], "message": "No songs found for this emotion."})
+
+        # Return the response with emotion and song recommendations
+        return jsonify({"emotion": dominant_emotion, "songs": songs})
     except Exception as e:
         print(f"Error in emotion detection route: {e}")
         return jsonify({"error": "An error occurred while processing the image!"}), 500
+
+
+# def detect_emotion_route():
+#     try:
+#         data = request.json
+#         image_data = data.get('image')
+#         if not image_data:
+#             return jsonify({"error": "No image data provided!"}), 400
+
+#         # Decode the base64 image data
+#         image_data = image_data.split(',')[1]
+#         image = Image.open(BytesIO(base64.b64decode(image_data)))
+
+#         # Convert RGBA to RGB (if necessary)
+#         if image.mode == 'RGBA':
+#             image = image.convert('RGB')
+
+#         frame = np.array(image)
+
+#         # Save image temporarily to predict
+#         temp_image_path = "temp_user_image.jpg"
+#         image.save(temp_image_path, 'JPEG')  # Save the image as JPEG
+
+#         # Analyze the emotion using the trained model
+#         emotion = analyze_emotion_from_image(temp_image_path)
+
+#         # Delete temporary image file
+#         os.remove(temp_image_path)
+
+#         if emotion is None:
+#             return jsonify({"error": "Error analyzing emotion from the image!"}), 500
+
+#         # Fetch song recommendations for the detected emotion
+#         songs = get_songs_for_emotion(emotion)
+#         if not songs:
+#             return jsonify({"emotion": emotion, "songs": [], "message": "No songs found for this emotion."})
+#         return jsonify({"emotion": emotion, "songs": songs})
+
+#     except Exception as e:
+#         print(f"Error in emotion detection route: {e}")
+#         return jsonify({"error": "An error occurred while processing the image!"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)

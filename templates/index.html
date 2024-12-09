@@ -84,6 +84,10 @@
         // Capture a frame from the video
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = canvas.toDataURL("image/png");
+        console.log(
+          "Captured frame and sent for emotion detection: ",
+          imageData.split('data:')
+        );
 
         try {
           // Send image to the backend for emotion detection
