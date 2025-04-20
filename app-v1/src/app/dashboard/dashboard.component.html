@@ -1,0 +1,24 @@
+<div class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
+    <h1 class="text-3xl font-bold mb-4">Emotion Detection</h1>
+    <div *ngIf="showPermissionWarning" class="text-red-600 font-bold mb-4">
+        Please allow camera access when prompted by your browser.
+    </div>
+    <button (click)="startDetection()" class="bg-blue-500 text-white px-4 py-2 rounded mb-2">
+        Start Emotion Detection
+    </button>
+    <video #videoElement class="border border-black w-80 h-80 mt-4" autoplay></video>
+    <div #emotionDiv class="text-xl mt-4">{{ detectedEmotion }}</div>
+    <div *ngIf="errorMessage" class="text-red-600 font-bold mt-4">{{ errorMessage }}</div>
+    <div *ngIf="showPlaylist" class="mt-6">
+        <h2 class="text-2xl font-bold mb-4">Recommended Playlist</h2>
+        <div class="flex flex-col gap-4">
+            <div *ngFor="let song of songs" class="flex items-center gap-4 p-2 bg-white rounded shadow">
+                <a [href]="song.url" class="flex-grow text-lg text-blue-500 hover:underline" target="_blank">
+                    {{ song.name }}
+                </a>
+                <iframe class="w-48 h-16" [src]="getSpotifyEmbedUrl(song.url)" frameborder="0"
+                    allow="encrypted-media"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
